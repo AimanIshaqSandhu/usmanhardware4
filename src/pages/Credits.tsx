@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { CreditCard, Search, Plus, Users, AlertCircle, Phone, Mail, MapPin, DollarSign, History, MessageCircle, Download, RefreshCw, Clock, Send } from "lucide-react";
+import { CreditCard, Search, Plus, Users, AlertCircle, Phone, Mail, MapPin, DollarSign, History, MessageCircle, Download, RefreshCw, Clock, Send, Copy, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { customersApi } from "@/services/api";
 import { useCustomerBalance } from "@/hooks/useCustomerBalance";
@@ -30,6 +30,7 @@ const Credits = () => {
   const [isTransactionHistoryOpen, setIsTransactionHistoryOpen] = useState(false);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
 
   const fetchAllCustomers = useCallback(async () => {
     try {
@@ -78,6 +79,55 @@ const Credits = () => {
         toast({
           title: "Error",
           description: response.message || "Failed to add customer",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Failed to add customer:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add customer",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleQuickAddCustomer = async (formData: { name: string; phone: string; initialCredit: number }) => {
+    try {
+      // First create the customer
+      const customerResponse = await customersApi.create({
+        name: formData.name,
+        phone: formData.phone,
+        type: "Permanent",
+        status: "active",
+        creditLimit: 0,
+        currentBalance: 0,
+      });
+      
+      if (customerResponse.success && customerResponse.data) {
+        const newCustomer = customerResponse.data;
+        
+        // If there's an initial credit, record it
+        if (formData.initialCredit > 0) {
+          await recordManualPayment(
+            newCustomer.id,
+            -formData.initialCredit, // Negative to increase balance
+            'credit',
+            undefined,
+            `Initial balance for old customer - ${formData.name}`
+          );
+        }
+
+        setIsQuickAddOpen(false);
+        fetchAllCustomers();
+        toast({
+          title: "Customer Added Successfully",
+          description: `${formData.name} added with PKR ${formData.initialCredit.toLocaleString()} credit`,
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: customerResponse.message || "Failed to add customer",
           variant: "destructive"
         });
       }
@@ -169,7 +219,7 @@ const Credits = () => {
           <h1 className="text-3xl font-bold text-foreground">Customer Credits</h1>
           <p className="text-muted-foreground">Manage and track customer outstanding balances</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button 
             variant="outline" 
             onClick={handleSyncBalances}
@@ -178,6 +228,15 @@ const Credits = () => {
             <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
             Sync Balances
           </Button>
+          <Dialog open={isQuickAddOpen} onOpenChange={setIsQuickAddOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-green-600 hover:bg-green-700">
+                <UserPlus className="h-4 w-4 mr-2" />
+                Quick Add (Old Customer)
+              </Button>
+            </DialogTrigger>
+            <QuickCustomerDialog onSubmit={handleQuickAddCustomer} onClose={() => setIsQuickAddOpen(false)} />
+          </Dialog>
           <Dialog open={isAddCustomerOpen} onOpenChange={setIsAddCustomerOpen}>
             <DialogTrigger asChild>
               <Button className="bg-blue-600 hover:bg-blue-700">
@@ -385,6 +444,83 @@ const Credits = () => {
         </>
       )}
     </div>
+  );
+};
+
+// Quick Customer Dialog Component for Old Customers
+const QuickCustomerDialog = ({ onSubmit, onClose }: { onSubmit: (data: { name: string; phone: string; initialCredit: number }) => void; onClose: () => void }) => {
+  const [formData, setFormData] = useState({
+    name: "", 
+    phone: "", 
+    initialCredit: ""
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name || !formData.phone) {
+      return;
+    }
+    onSubmit({
+      name: formData.name,
+      phone: formData.phone,
+      initialCredit: parseFloat(formData.initialCredit) || 0
+    });
+    setFormData({ name: "", phone: "", initialCredit: "" });
+  };
+
+  return (
+    <DialogContent className="max-w-md">
+      <DialogHeader>
+        <DialogTitle>Quick Add Old Customer</DialogTitle>
+      </DialogHeader>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="quick-name">Customer Name *</Label>
+          <Input
+            id="quick-name"
+            value={formData.name}
+            onChange={(e) => setFormData({...formData, name: e.target.value})}
+            required
+            placeholder="Enter customer name"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="quick-phone">Phone Number *</Label>
+          <Input
+            id="quick-phone"
+            value={formData.phone}
+            onChange={(e) => setFormData({...formData, phone: e.target.value})}
+            required
+            placeholder="e.g., +92-322-6506118"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="quick-credit">Initial Credit/Receivables (PKR)</Label>
+          <Input
+            id="quick-credit"
+            type="number"
+            step="0.01"
+            value={formData.initialCredit}
+            onChange={(e) => setFormData({...formData, initialCredit: e.target.value})}
+            placeholder="Enter old balance amount"
+          />
+          <p className="text-xs text-muted-foreground">
+            Enter the existing credit amount this customer owes from previous purchases
+          </p>
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" className="bg-green-600 hover:bg-green-700">
+            Add Customer & Credit
+          </Button>
+        </div>
+      </form>
+    </DialogContent>
   );
 };
 
@@ -739,45 +875,86 @@ const WhatsAppAutomation = ({ customers }: { customers: any[] }) => {
   const { toast } = useToast();
   const [message, setMessage] = useState("Dear {name}, your outstanding balance is PKR {balance}. Please clear your dues at the earliest. Thank you!");
   const [scheduleTime, setScheduleTime] = useState("09:00");
-  const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   const [isScheduled, setIsScheduled] = useState(false);
+  const [showAllMessages, setShowAllMessages] = useState(false);
+  const [isSending, setIsSending] = useState(false);
 
-  const handleSendNow = () => {
-    if (selectedCustomers.length === 0) {
+  const generateMessagesForAll = () => {
+    return customers.map(customer => ({
+      customer,
+      message: message
+        .replace('{name}', customer.name)
+        .replace('{balance}', (customer.currentBalance || 0).toLocaleString()),
+      phone: customer.phone?.replace(/[^0-9]/g, '')
+    })).filter(item => item.phone);
+  };
+
+  const handleSendToAll = async () => {
+    const messagesToSend = generateMessagesForAll();
+    
+    if (messagesToSend.length === 0) {
       toast({
-        title: "No Customers Selected",
-        description: "Please select at least one customer",
+        title: "No Valid Customers",
+        description: "No customers with valid phone numbers found",
         variant: "destructive"
       });
       return;
     }
 
-    const customersToSend = selectedCustomers.includes('all') 
-      ? customers 
-      : customers.filter(c => selectedCustomers.includes(c.id.toString()));
+    setIsSending(true);
 
-    customersToSend.forEach(customer => {
-      if (customer.phone) {
-        const personalizedMsg = message
-          .replace('{name}', customer.name)
-          .replace('{balance}', (customer.currentBalance || 0).toLocaleString());
-        
-        const whatsappUrl = `https://wa.me/${customer.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(personalizedMsg)}`;
-        window.open(whatsappUrl, '_blank');
+    // Open WhatsApp for each customer with a small delay
+    for (let i = 0; i < messagesToSend.length; i++) {
+      const { phone, message: msg } = messagesToSend[i];
+      const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+      
+      // Open in new tab
+      window.open(whatsappUrl, '_blank');
+      
+      // Small delay between opening windows
+      if (i < messagesToSend.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
-    });
+    }
 
+    setIsSending(false);
     toast({
-      title: "Messages Sent",
-      description: `Opening WhatsApp for ${customersToSend.length} customers`,
+      title: "Messages Queued",
+      description: `Opened WhatsApp for ${messagesToSend.length} customers. Please send each message.`,
+    });
+  };
+
+  const handleCopyAllMessages = () => {
+    const messagesToSend = generateMessagesForAll();
+    
+    if (messagesToSend.length === 0) {
+      toast({
+        title: "No Messages",
+        description: "No customers with valid phone numbers found",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const allMessages = messagesToSend
+      .map(({ customer, message: msg, phone }) => 
+        `${customer.name} (+${phone}):\n${msg}`
+      )
+      .join('\n\n---\n\n');
+
+    navigator.clipboard.writeText(allMessages);
+    
+    toast({
+      title: "Messages Copied",
+      description: `Copied ${messagesToSend.length} messages to clipboard`,
     });
   };
 
   const handleSchedule = () => {
-    if (selectedCustomers.length === 0) {
+    if (customers.length === 0) {
       toast({
-        title: "No Customers Selected",
-        description: "Please select at least one customer",
+        title: "No Customers",
+        description: "No customers with credits available",
         variant: "destructive"
       });
       return;
@@ -786,7 +963,7 @@ const WhatsAppAutomation = ({ customers }: { customers: any[] }) => {
     setIsScheduled(true);
     toast({
       title: "Automation Scheduled",
-      description: `Messages will be sent daily at ${scheduleTime}`,
+      description: `Messages will be sent daily at ${scheduleTime} to all ${customers.length} customers`,
     });
   };
 
@@ -795,32 +972,13 @@ const WhatsAppAutomation = ({ customers }: { customers: any[] }) => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <MessageCircle className="h-5 w-5" />
-          WhatsApp Automation
+          WhatsApp Bulk Messaging
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div>
-          <Label htmlFor="customers-select">Select Customers</Label>
-          <Select 
-            value={selectedCustomers.includes('all') ? 'all' : selectedCustomers[0] || ''} 
-            onValueChange={(value) => setSelectedCustomers(value === 'all' ? ['all'] : [value])}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select customers" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Customers ({customers.length})</SelectItem>
-              {customers.map((customer) => (
-                <SelectItem key={customer.id} value={customer.id.toString()}>
-                  {customer.name} - PKR {(customer.currentBalance || 0).toLocaleString()}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground mt-1">
-            {selectedCustomers.includes('all') 
-              ? `All ${customers.length} customers selected` 
-              : `${selectedCustomers.length} customer(s) selected`}
+        <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+          <p className="text-sm text-blue-800 dark:text-blue-200">
+            <strong>How it works:</strong> Click "Send to All Customers" to automatically open WhatsApp for all {customers.length} customers with their personalized messages. Each message will open in a new tab with a small delay.
           </p>
         </div>
 
@@ -838,50 +996,106 @@ const WhatsAppAutomation = ({ customers }: { customers: any[] }) => {
           </p>
         </div>
 
-        <div>
-          <Label htmlFor="schedule-time">Daily Schedule Time</Label>
-          <div className="flex gap-2">
-            <Input
-              id="schedule-time"
-              type="time"
-              value={scheduleTime}
-              onChange={(e) => setScheduleTime(e.target.value)}
-              className="flex-1"
-            />
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <Button 
+              onClick={handleSendToAll}
+              disabled={isSending || customers.length === 0}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <Send className="h-4 w-4 mr-2" />
+              {isSending ? 'Sending...' : `Send to All (${customers.length})`}
+            </Button>
+            <Button 
+              onClick={handleCopyAllMessages}
+              variant="outline"
+              disabled={customers.length === 0}
+            >
+              <Copy className="h-4 w-4 mr-2" />
+              Copy All Messages
+            </Button>
+          </div>
+          <Button 
+            onClick={() => setShowAllMessages(!showAllMessages)}
+            variant="secondary"
+            className="w-full"
+          >
+            {showAllMessages ? 'Hide Messages Preview' : 'Preview All Messages'}
+          </Button>
+        </div>
+
+        {showAllMessages && (
+          <Card className="max-h-96 overflow-y-auto">
+            <CardContent className="p-4 space-y-3">
+              <h4 className="font-semibold text-sm">Messages Preview ({customers.length} customers)</h4>
+              {generateMessagesForAll().map(({ customer, message: msg, phone }, index) => (
+                <div key={customer.id} className="p-3 bg-muted rounded-lg border">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="font-semibold text-sm">{customer.name}</p>
+                      <p className="text-xs text-muted-foreground">+{phone}</p>
+                    </div>
+                    <Badge variant="outline">PKR {(customer.currentBalance || 0).toLocaleString()}</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">{msg}</p>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="mt-2 w-full"
+                    onClick={() => {
+                      const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+                      window.open(whatsappUrl, '_blank');
+                    }}
+                  >
+                    <Send className="h-3 w-3 mr-1" />
+                    Send to {customer.name}
+                  </Button>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="pt-4 border-t">
+          <h4 className="font-semibold text-sm mb-3">Schedule Daily Reminders (Optional)</h4>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="schedule-time">Daily Send Time</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="schedule-time"
+                  type="time"
+                  value={scheduleTime}
+                  onChange={(e) => setScheduleTime(e.target.value)}
+                  className="flex-1"
+                />
+                {isScheduled && (
+                  <Badge variant="default" className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    Active
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            <Button 
+              onClick={handleSchedule}
+              variant={isScheduled ? "secondary" : "default"}
+              className="w-full"
+            >
+              <Clock className="h-4 w-4 mr-2" />
+              {isScheduled ? 'Update Schedule' : 'Schedule Daily Messages'}
+            </Button>
+
             {isScheduled && (
-              <Badge variant="default" className="flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                Active
-              </Badge>
+              <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
+                <p className="text-sm text-green-800 dark:text-green-200">
+                  ✓ Daily automation is active. Messages will be sent at {scheduleTime} to all {customers.length} customers with outstanding balances.
+                </p>
+              </div>
             )}
           </div>
         </div>
-
-        <div className="flex gap-2">
-          <Button 
-            onClick={handleSendNow}
-            className="flex-1 bg-green-600 hover:bg-green-700"
-          >
-            <Send className="h-4 w-4 mr-2" />
-            Send Now
-          </Button>
-          <Button 
-            onClick={handleSchedule}
-            variant={isScheduled ? "secondary" : "default"}
-            className="flex-1"
-          >
-            <Clock className="h-4 w-4 mr-2" />
-            {isScheduled ? 'Update Schedule' : 'Schedule Daily'}
-          </Button>
-        </div>
-
-        {isScheduled && (
-          <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
-            <p className="text-sm text-green-800 dark:text-green-200">
-              ✓ Automation is active. Messages will be sent daily at {scheduleTime} to {selectedCustomers.includes('all') ? 'all customers' : `${selectedCustomers.length} customer(s)`}.
-            </p>
-          </div>
-        )}
       </CardContent>
     </Card>
   );
