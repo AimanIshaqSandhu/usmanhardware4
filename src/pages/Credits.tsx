@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -873,29 +874,77 @@ const TransactionHistoryModal = ({
 // WhatsApp Automation Component
 const WhatsAppAutomation = ({ customers }: { customers: any[] }) => {
   const { toast } = useToast();
-  const [message, setMessage] = useState("Dear {name}, your outstanding balance is PKR {balance}. Please clear your dues at the earliest. Thank you!");
-  const [scheduleTime, setScheduleTime] = useState("09:00");
-  const [isScheduled, setIsScheduled] = useState(false);
-  const [showAllMessages, setShowAllMessages] = useState(false);
+  const [messageTemplate, setMessageTemplate] = useState("Dear {name}, your outstanding balance is PKR {balance}. Please clear your dues at the earliest. Thank you!");
+  const [selectedCustomers, setSelectedCustomers] = useState<Set<number>>(new Set());
+  const [customMessages, setCustomMessages] = useState<Map<number, string>>(new Map());
   const [isSending, setIsSending] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
-  const generateMessagesForAll = () => {
-    return customers.map(customer => ({
-      customer,
-      message: message
-        .replace('{name}', customer.name)
-        .replace('{balance}', (customer.currentBalance || 0).toLocaleString()),
-      phone: customer.phone?.replace(/[^0-9]/g, '')
-    })).filter(item => item.phone);
+  // Initialize - select all customers by default
+  useEffect(() => {
+    const validCustomers = customers.filter(c => c.phone?.replace(/[^0-9]/g, ''));
+    setSelectedCustomers(new Set(validCustomers.map(c => c.id)));
+  }, [customers]);
+
+  const generateMessage = (customer: any) => {
+    // Check if there's a custom message for this customer
+    if (customMessages.has(customer.id)) {
+      return customMessages.get(customer.id)!;
+    }
+    // Otherwise use template
+    return messageTemplate
+      .replace('{name}', customer.name)
+      .replace('{balance}', (customer.currentBalance || 0).toLocaleString());
+  };
+
+  const getSelectedCustomersData = () => {
+    return customers
+      .filter(c => selectedCustomers.has(c.id) && c.phone?.replace(/[^0-9]/g, ''))
+      .map(customer => ({
+        customer,
+        message: generateMessage(customer),
+        phone: customer.phone?.replace(/[^0-9]/g, '')
+      }));
+  };
+
+  const handleToggleCustomer = (customerId: number) => {
+    const newSelected = new Set(selectedCustomers);
+    if (newSelected.has(customerId)) {
+      newSelected.delete(customerId);
+    } else {
+      newSelected.add(customerId);
+    }
+    setSelectedCustomers(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    const validCustomers = customers.filter(c => c.phone?.replace(/[^0-9]/g, ''));
+    setSelectedCustomers(new Set(validCustomers.map(c => c.id)));
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedCustomers(new Set());
+  };
+
+  const handleEditMessage = (customerId: number, newMessage: string) => {
+    const newCustomMessages = new Map(customMessages);
+    newCustomMessages.set(customerId, newMessage);
+    setCustomMessages(newCustomMessages);
+  };
+
+  const handleResetMessage = (customerId: number) => {
+    const newCustomMessages = new Map(customMessages);
+    newCustomMessages.delete(customerId);
+    setCustomMessages(newCustomMessages);
   };
 
   const handleSendToAll = async () => {
-    const messagesToSend = generateMessagesForAll();
+    const messagesToSend = getSelectedCustomersData();
     
     if (messagesToSend.length === 0) {
       toast({
-        title: "No Valid Customers",
-        description: "No customers with valid phone numbers found",
+        title: "No Customers Selected",
+        description: "Please select at least one customer with a valid phone number",
         variant: "destructive"
       });
       return;
@@ -903,16 +952,13 @@ const WhatsAppAutomation = ({ customers }: { customers: any[] }) => {
 
     setIsSending(true);
 
-    // Open WhatsApp for each customer with a longer delay to prevent popup blocking
-    for (let i = 0; i < messagesToSend.length; i++) {
-      const { phone, message: msg } = messagesToSend[i];
-      const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
-      
-      // Open in new tab
+    // Open WhatsApp for each customer with delay to prevent popup blocking
+    messagesToSend.forEach(({ phone, message }, i) => {
       setTimeout(() => {
+        const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
         window.open(whatsappUrl, '_blank');
-      }, i * 1000); // 1 second delay between each
-    }
+      }, i * 1500); // 1.5 second delay between each
+    });
 
     setIsSending(false);
     toast({
@@ -922,20 +968,20 @@ const WhatsAppAutomation = ({ customers }: { customers: any[] }) => {
   };
 
   const handleCopyAllMessages = () => {
-    const messagesToSend = generateMessagesForAll();
+    const messagesToSend = getSelectedCustomersData();
     
     if (messagesToSend.length === 0) {
       toast({
         title: "No Messages",
-        description: "No customers with valid phone numbers found",
+        description: "No customers selected",
         variant: "destructive"
       });
       return;
     }
 
     const allMessages = messagesToSend
-      .map(({ customer, message: msg, phone }) => 
-        `${customer.name} (+${phone}):\n${msg}`
+      .map(({ customer, message, phone }) => 
+        `${customer.name} (+${phone}):\n${message}`
       )
       .join('\n\n---\n\n');
 
@@ -947,24 +993,8 @@ const WhatsAppAutomation = ({ customers }: { customers: any[] }) => {
     });
   };
 
-  const handleSchedule = () => {
-    if (customers.length === 0) {
-      toast({
-        title: "No Customers",
-        description: "No customers with credits available",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsScheduled(true);
-    toast({
-      title: "Automation Scheduled",
-      description: `Messages will be sent daily at ${scheduleTime} to all ${customers.length} customers`,
-    });
-  };
-
-  const messagesToSend = generateMessagesForAll();
+  const selectedData = getSelectedCustomersData();
+  const totalBalance = selectedData.reduce((sum, { customer }) => sum + (customer.currentBalance || 0), 0);
 
   return (
     <Card>
@@ -975,35 +1005,30 @@ const WhatsAppAutomation = ({ customers }: { customers: any[] }) => {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Customer List Preview */}
-        <div className="p-4 bg-muted rounded-lg border">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="font-semibold text-sm">Customers with Credits: {messagesToSend.length}</h4>
-            <Badge variant="outline">Total: PKR {customers.reduce((sum, c) => sum + (c.currentBalance || 0), 0).toLocaleString()}</Badge>
+        {/* Summary Stats */}
+        <div className="grid grid-cols-3 gap-4 p-4 bg-muted rounded-lg border">
+          <div>
+            <p className="text-xs text-muted-foreground">Total Customers</p>
+            <p className="text-xl font-bold">{customers.length}</p>
           </div>
-          <div className="space-y-2 max-h-64 overflow-y-auto">
-            {messagesToSend.map(({ customer, phone }) => (
-              <div key={customer.id} className="flex items-center justify-between p-2 bg-background rounded border">
-                <div className="flex-1">
-                  <p className="font-medium text-sm">{customer.name}</p>
-                  <p className="text-xs text-muted-foreground">+{phone}</p>
-                </div>
-                <Badge variant="secondary">PKR {(customer.currentBalance || 0).toLocaleString()}</Badge>
-              </div>
-            ))}
-            {messagesToSend.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-4">No customers with valid phone numbers</p>
-            )}
+          <div>
+            <p className="text-xs text-muted-foreground">Selected</p>
+            <p className="text-xl font-bold text-primary">{selectedCustomers.size}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Total Balance</p>
+            <p className="text-xl font-bold text-red-600">PKR {totalBalance.toLocaleString()}</p>
           </div>
         </div>
 
+        {/* Message Template */}
         <div>
           <Label htmlFor="message-template">Message Template</Label>
           <Textarea
             id="message-template"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            rows={4}
+            value={messageTemplate}
+            onChange={(e) => setMessageTemplate(e.target.value)}
+            rows={3}
             placeholder="Use {name} for customer name and {balance} for outstanding balance"
           />
           <p className="text-xs text-muted-foreground mt-1">
@@ -1011,63 +1036,130 @@ const WhatsAppAutomation = ({ customers }: { customers: any[] }) => {
           </p>
         </div>
 
+        {/* Action Buttons */}
+        <div className="flex gap-2">
+          <Button 
+            onClick={handleSelectAll}
+            variant="outline"
+            size="sm"
+          >
+            Select All
+          </Button>
+          <Button 
+            onClick={handleDeselectAll}
+            variant="outline"
+            size="sm"
+          >
+            Deselect All
+          </Button>
+        </div>
+
+        {/* Customer List with Selection */}
+        <div className="border rounded-lg max-h-96 overflow-y-auto">
+          <div className="divide-y">
+            {customers.map(customer => {
+              const phone = customer.phone?.replace(/[^0-9]/g, '');
+              const isSelected = selectedCustomers.has(customer.id);
+              const hasPhone = Boolean(phone);
+              const message = generateMessage(customer);
+              const isCustomMessage = customMessages.has(customer.id);
+
+              return (
+                <div 
+                  key={customer.id} 
+                  className={`p-3 transition-colors ${isSelected ? 'bg-primary/5' : ''} ${!hasPhone ? 'opacity-50' : ''}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex items-center h-full pt-1">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleToggleCustomer(customer.id)}
+                        disabled={!hasPhone}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex-1">
+                          <p className="font-semibold text-sm">{customer.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {hasPhone ? `+${phone}` : 'No phone number'}
+                          </p>
+                        </div>
+                        <Badge variant="secondary">
+                          PKR {(customer.currentBalance || 0).toLocaleString()}
+                        </Badge>
+                      </div>
+                      
+                      {isSelected && hasPhone && (
+                        <div className="mt-2 space-y-2">
+                          <div className="relative">
+                            <Textarea
+                              value={message}
+                              onChange={(e) => handleEditMessage(customer.id, e.target.value)}
+                              rows={2}
+                              className="text-xs pr-20"
+                            />
+                            {isCustomMessage && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleResetMessage(customer.id)}
+                                className="absolute top-1 right-1 h-7 text-xs"
+                              >
+                                Reset
+                              </Button>
+                            )}
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => {
+                              const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+                              window.open(whatsappUrl, '_blank');
+                            }}
+                          >
+                            <Send className="h-3 w-3 mr-1" />
+                            Send Individual
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Main Actions */}
         <div className="grid grid-cols-2 gap-2">
           <Button 
             onClick={handleSendToAll}
-            disabled={isSending || messagesToSend.length === 0}
+            disabled={isSending || selectedData.length === 0}
             className="bg-green-600 hover:bg-green-700"
           >
             <Send className="h-4 w-4 mr-2" />
-            {isSending ? 'Opening...' : `Send to All (${messagesToSend.length})`}
+            {isSending ? 'Opening...' : `Send to ${selectedData.length} Customer${selectedData.length !== 1 ? 's' : ''}`}
           </Button>
           <Button 
             onClick={handleCopyAllMessages}
             variant="outline"
-            disabled={messagesToSend.length === 0}
+            disabled={selectedData.length === 0}
           >
             <Copy className="h-4 w-4 mr-2" />
             Copy All
           </Button>
         </div>
 
-        <Button 
-          onClick={() => setShowAllMessages(!showAllMessages)}
-          variant="secondary"
-          className="w-full"
-        >
-          {showAllMessages ? 'Hide Preview' : 'Preview Messages'}
-        </Button>
-
-        {showAllMessages && (
-          <Card className="max-h-96 overflow-y-auto">
-            <CardContent className="p-4 space-y-3">
-              {messagesToSend.map(({ customer, message: msg, phone }) => (
-                <div key={customer.id} className="p-3 bg-muted rounded-lg border">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="font-semibold text-sm">{customer.name}</p>
-                      <p className="text-xs text-muted-foreground">+{phone}</p>
-                    </div>
-                    <Badge variant="outline">PKR {(customer.currentBalance || 0).toLocaleString()}</Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">{msg}</p>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="mt-2 w-full"
-                    onClick={() => {
-                      const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
-                      window.open(whatsappUrl, '_blank');
-                    }}
-                  >
-                    <Send className="h-3 w-3 mr-1" />
-                    Send Individual
-                  </Button>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
+        {/* Info Alert */}
+        <div className="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <p className="text-xs text-blue-900 dark:text-blue-100">
+            <strong>Note:</strong> For direct WhatsApp sending without opening tabs, you'll need WhatsApp Business API credentials. Contact us to set this up.
+          </p>
+        </div>
       </CardContent>
     </Card>
   );
