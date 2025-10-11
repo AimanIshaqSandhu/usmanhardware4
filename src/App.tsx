@@ -1,61 +1,83 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import AboutUs from "./pages/AboutUs";
-import ProductDemoVideos from "./pages/ProductDemoVideos";
-import CaseStudies from "./pages/CaseStudies";
-import Shorts from "./pages/Shorts";
-import Pricing from "./pages/Pricing";
-import Career from "./pages/Career";
-import PrivacyPolicy from "./pages/PrivacyPolicy";
-import TermsOfService from "./pages/TermsOfService";
-import CookiePolicy from "./pages/CookiePolicy";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { FontProvider } from "@/components/FontProvider";
+import { AppSidebar } from "@/components/AppSidebar";
+import { Header } from "@/components/Header";
+import Dashboard from "./pages/Dashboard";
+import Products from "./pages/Products";
+import Sales from "./pages/Sales";
+import Orders from "./pages/Orders";
+import Customers from "./pages/Customers";
+import Inventory from "./pages/Inventory";
+import Finances from "./pages/Finances";
+import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
-import YouTubeStrategy from "./pages/YouTubeStrategy";
-import YouTubeScriptGenerator from "./pages/YouTubeScriptGenerator";
-import ScriptGenerator from "./pages/ScriptGenerator";
-import BlogPost from "./pages/BlogPost";
-import Blog from "./pages/Blog";
-import VideoProduction from "./pages/VideoProduction";
-import IGaming from "./pages/IGaming";
-import ScrollToTop from "./components/ScrollToTop";
+import Suppliers from "./pages/Suppliers";
+import PurchaseOrders from "./pages/PurchaseOrders";
+import Quotations from "./pages/Quotations";
+import CustomerInsights from "./pages/CustomerInsights";
+import Notifications from "./pages/Notifications";
+import Settings from "./pages/Settings";
+import BackupSync from "./pages/BackupSync";
+import Accounts from "./pages/Accounts";
+import Profile from "./pages/Profile";
+import Employees from "./pages/Employees";
+import OutsourcedOrders from "./pages/OutsourcedOrders";
+import Profit from "./pages/Profit";
+import Credits from "./pages/Credits";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <ScrollToTop />
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/about" element={<AboutUs />} />
-          <Route path="/case-studies" element={<CaseStudies />} />
-          <Route path="/product-demo-videos" element={<ProductDemoVideos />} />
-          <Route path="/shorts" element={<Shorts />} />
-          <Route path="/pricing" element={<Pricing />} />
-          <Route path="/career" element={<Career />} />
-          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-          <Route path="/terms-of-service" element={<TermsOfService />} />
-          <Route path="/cookie-policy" element={<CookiePolicy />} />
-          <Route path="/youtube-strategy" element={<YouTubeStrategy />} />
-        <Route path="/youtube-script-generator" element={<YouTubeScriptGenerator />} />
-        <Route path="/script-generator" element={<ScriptGenerator />} />
-          <Route path="/video-production" element={<VideoProduction />} />
-          <Route path="/services/igaming" element={<IGaming />} />
-          <Route path="/blog" element={<Blog />} />
-          <Route path="/blog/:slug" element={<BlogPost />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <ThemeProvider defaultTheme="system" storageKey="hardware-store-theme">
+      <FontProvider defaultFont="inter" storageKey="hardware-store-font">
+        <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <SidebarProvider>
+            <div className="min-h-screen flex w-full bg-background">
+              <AppSidebar />
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <Header />
+                <main className="flex-1 overflow-auto custom-scrollbar">
+                   <Routes>
+                     <Route path="/" element={<Dashboard />} />
+                     <Route path="/profit" element={<Profit />} />
+                    <Route path="/products" element={<Products />} />
+                    <Route path="/sales" element={<Sales />} />
+                    <Route path="/orders" element={<Orders />} />
+                    <Route path="/outsourced-orders" element={<OutsourcedOrders />} />
+                     <Route path="/customers" element={<Customers />} />
+                     <Route path="/credits" element={<Credits />} />
+                     <Route path="/suppliers" element={<Suppliers />} />
+                    <Route path="/purchase-orders" element={<PurchaseOrders />} />
+                    <Route path="/quotations" element={<Quotations />} />
+                     <Route path="/customer-insights" element={<CustomerInsights />} />
+                     <Route path="/notifications" element={<Notifications />} />
+        <Route path="/accounts" element={<Accounts />} />
+        <Route path="/profile" element={<Profile />} />
+                     <Route path="/employees" element={<Employees />} />
+                     <Route path="/settings" element={<Settings />} />
+                     <Route path="/backup" element={<BackupSync />} />
+                    <Route path="/finances" element={<Finances />} />
+                    <Route path="/reports" element={<Reports />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </main>
+              </div>
+            </div>
+          </SidebarProvider>
+        </BrowserRouter>
+        </TooltipProvider>
+      </FontProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 
