@@ -1,6 +1,6 @@
 
 import ModernHeader from '@/components/ModernHeader';
-import Footer from '@/components/Footer';
+import { Footer } from '@/components/Footer';
 import PricingHero from '@/components/pricing/PricingHero';
 import PricingPlans from '@/components/pricing/PricingPlans';
 import PricingFAQ from '@/components/pricing/PricingFAQ';

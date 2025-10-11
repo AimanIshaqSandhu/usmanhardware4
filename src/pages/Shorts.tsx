@@ -1,5 +1,5 @@
 import ModernHeader from '@/components/ModernHeader';
-import Footer from '@/components/Footer';
+import { Footer } from '@/components/Footer';
 import { ArrowLeft, Play, Clock, TrendingUp, Target, Zap, Users, MessageCircle, Figma, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useEffect } from 'react';

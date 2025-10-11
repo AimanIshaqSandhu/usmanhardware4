@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import ModernHeader from '@/components/ModernHeader'
-import Footer from '@/components/Footer'
+import { Footer } from '@/components/Footer'
 import Breadcrumb from '@/components/Breadcrumb'
 import SEO from '@/components/SEO'
 

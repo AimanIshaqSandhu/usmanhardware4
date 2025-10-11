@@ -1,6 +1,6 @@
 
 import ModernHeader from '@/components/ModernHeader';
-import Footer from '@/components/Footer';
+import { Footer } from '@/components/Footer';
 import SEO from '@/components/SEO';
 import Breadcrumb from '@/components/Breadcrumb';
 import CareerHero from '@/components/career/CareerHero';

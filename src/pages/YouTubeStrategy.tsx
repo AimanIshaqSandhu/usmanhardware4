@@ -1,6 +1,6 @@
 import SEO from '@/components/SEO';
 import ModernHeader from '@/components/ModernHeader';
-import Footer from '@/components/Footer';
+import { Footer } from '@/components/Footer';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';

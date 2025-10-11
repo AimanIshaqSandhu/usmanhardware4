@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import ModernHeader from '@/components/ModernHeader';
-import Footer from '@/components/Footer';
+import { Footer } from '@/components/Footer';
 import SEO from '@/components/SEO';
 import StructuredData from '@/components/StructuredData';
 import { Button } from '@/components/ui/button';

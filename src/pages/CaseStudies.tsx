@@ -1,5 +1,5 @@
 import ModernHeader from '@/components/ModernHeader';
-import Footer from '@/components/Footer';
+import { Footer } from '@/components/Footer';
 import { BarChart3, Eye, MousePointer, DollarSign, Target, Award } from 'lucide-react';
 import { useEffect } from 'react';
 import CaseStudyHero from '@/components/case-studies/CaseStudyHero';

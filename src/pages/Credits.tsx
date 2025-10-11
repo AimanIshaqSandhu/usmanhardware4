@@ -903,24 +903,21 @@ const WhatsAppAutomation = ({ customers }: { customers: any[] }) => {
 
     setIsSending(true);
 
-    // Open WhatsApp for each customer with a small delay
+    // Open WhatsApp for each customer with a longer delay to prevent popup blocking
     for (let i = 0; i < messagesToSend.length; i++) {
       const { phone, message: msg } = messagesToSend[i];
       const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
       
       // Open in new tab
-      window.open(whatsappUrl, '_blank');
-      
-      // Small delay between opening windows
-      if (i < messagesToSend.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
+      setTimeout(() => {
+        window.open(whatsappUrl, '_blank');
+      }, i * 1000); // 1 second delay between each
     }
 
     setIsSending(false);
     toast({
-      title: "Messages Queued",
-      description: `Opened WhatsApp for ${messagesToSend.length} customers. Please send each message.`,
+      title: "Opening WhatsApp",
+      description: `Opening ${messagesToSend.length} WhatsApp chats. Please allow popups if blocked.`,
     });
   };
 
@@ -967,6 +964,8 @@ const WhatsAppAutomation = ({ customers }: { customers: any[] }) => {
     });
   };
 
+  const messagesToSend = generateMessagesForAll();
+
   return (
     <Card>
       <CardHeader>
@@ -976,10 +975,26 @@ const WhatsAppAutomation = ({ customers }: { customers: any[] }) => {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
-          <p className="text-sm text-blue-800 dark:text-blue-200">
-            <strong>How it works:</strong> Click "Send to All Customers" to automatically open WhatsApp for all {customers.length} customers with their personalized messages. Each message will open in a new tab with a small delay.
-          </p>
+        {/* Customer List Preview */}
+        <div className="p-4 bg-muted rounded-lg border">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="font-semibold text-sm">Customers with Credits: {messagesToSend.length}</h4>
+            <Badge variant="outline">Total: PKR {customers.reduce((sum, c) => sum + (c.currentBalance || 0), 0).toLocaleString()}</Badge>
+          </div>
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {messagesToSend.map(({ customer, phone }) => (
+              <div key={customer.id} className="flex items-center justify-between p-2 bg-background rounded border">
+                <div className="flex-1">
+                  <p className="font-medium text-sm">{customer.name}</p>
+                  <p className="text-xs text-muted-foreground">+{phone}</p>
+                </div>
+                <Badge variant="secondary">PKR {(customer.currentBalance || 0).toLocaleString()}</Badge>
+              </div>
+            ))}
+            {messagesToSend.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">No customers with valid phone numbers</p>
+            )}
+          </div>
         </div>
 
         <div>
@@ -992,43 +1007,41 @@ const WhatsAppAutomation = ({ customers }: { customers: any[] }) => {
             placeholder="Use {name} for customer name and {balance} for outstanding balance"
           />
           <p className="text-xs text-muted-foreground mt-1">
-            Available variables: {'{name}'}, {'{balance}'}
+            Variables: {'{name}'} = customer name, {'{balance}'} = outstanding amount
           </p>
         </div>
 
-        <div className="space-y-2">
-          <div className="grid grid-cols-2 gap-2">
-            <Button 
-              onClick={handleSendToAll}
-              disabled={isSending || customers.length === 0}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              <Send className="h-4 w-4 mr-2" />
-              {isSending ? 'Sending...' : `Send to All (${customers.length})`}
-            </Button>
-            <Button 
-              onClick={handleCopyAllMessages}
-              variant="outline"
-              disabled={customers.length === 0}
-            >
-              <Copy className="h-4 w-4 mr-2" />
-              Copy All Messages
-            </Button>
-          </div>
+        <div className="grid grid-cols-2 gap-2">
           <Button 
-            onClick={() => setShowAllMessages(!showAllMessages)}
-            variant="secondary"
-            className="w-full"
+            onClick={handleSendToAll}
+            disabled={isSending || messagesToSend.length === 0}
+            className="bg-green-600 hover:bg-green-700"
           >
-            {showAllMessages ? 'Hide Messages Preview' : 'Preview All Messages'}
+            <Send className="h-4 w-4 mr-2" />
+            {isSending ? 'Opening...' : `Send to All (${messagesToSend.length})`}
+          </Button>
+          <Button 
+            onClick={handleCopyAllMessages}
+            variant="outline"
+            disabled={messagesToSend.length === 0}
+          >
+            <Copy className="h-4 w-4 mr-2" />
+            Copy All
           </Button>
         </div>
+
+        <Button 
+          onClick={() => setShowAllMessages(!showAllMessages)}
+          variant="secondary"
+          className="w-full"
+        >
+          {showAllMessages ? 'Hide Preview' : 'Preview Messages'}
+        </Button>
 
         {showAllMessages && (
           <Card className="max-h-96 overflow-y-auto">
             <CardContent className="p-4 space-y-3">
-              <h4 className="font-semibold text-sm">Messages Preview ({customers.length} customers)</h4>
-              {generateMessagesForAll().map(({ customer, message: msg, phone }, index) => (
+              {messagesToSend.map(({ customer, message: msg, phone }) => (
                 <div key={customer.id} className="p-3 bg-muted rounded-lg border">
                   <div className="flex justify-between items-start mb-2">
                     <div>
@@ -1048,54 +1061,13 @@ const WhatsAppAutomation = ({ customers }: { customers: any[] }) => {
                     }}
                   >
                     <Send className="h-3 w-3 mr-1" />
-                    Send to {customer.name}
+                    Send Individual
                   </Button>
                 </div>
               ))}
             </CardContent>
           </Card>
         )}
-
-        <div className="pt-4 border-t">
-          <h4 className="font-semibold text-sm mb-3">Schedule Daily Reminders (Optional)</h4>
-          <div className="space-y-3">
-            <div>
-              <Label htmlFor="schedule-time">Daily Send Time</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="schedule-time"
-                  type="time"
-                  value={scheduleTime}
-                  onChange={(e) => setScheduleTime(e.target.value)}
-                  className="flex-1"
-                />
-                {isScheduled && (
-                  <Badge variant="default" className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    Active
-                  </Badge>
-                )}
-              </div>
-            </div>
-
-            <Button 
-              onClick={handleSchedule}
-              variant={isScheduled ? "secondary" : "default"}
-              className="w-full"
-            >
-              <Clock className="h-4 w-4 mr-2" />
-              {isScheduled ? 'Update Schedule' : 'Schedule Daily Messages'}
-            </Button>
-
-            {isScheduled && (
-              <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
-                <p className="text-sm text-green-800 dark:text-green-200">
-                  ✓ Daily automation is active. Messages will be sent at {scheduleTime} to all {customers.length} customers with outstanding balances.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
       </CardContent>
     </Card>
   );

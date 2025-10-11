@@ -1,5 +1,5 @@
 import ModernHeader from '@/components/ModernHeader';
-import Footer from '@/components/Footer';
+import { Footer } from '@/components/Footer';
 
 const PrivacyPolicy = () => {
   return (
