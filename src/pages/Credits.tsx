@@ -20,9 +20,9 @@ const Credits = () => {
   
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("all");
+  const [filterType, setFilterType] = useState<string>("all"); // "all", "with-credits", "no-credits"
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
   const [customers, setCustomers] = useState<any[]>([]);
-  const [customersWithCredits, setCustomersWithCredits] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -45,10 +45,6 @@ const Credits = () => {
       if (response.success) {
         const allCustomers = response.data?.customers || [];
         setCustomers(allCustomers);
-        
-        // Filter customers with credits (currentBalance > 0)
-        const withCredits = allCustomers.filter((c: any) => (c.currentBalance || 0) > 0);
-        setCustomersWithCredits(withCredits);
       }
     } catch (error) {
       console.error('Failed to fetch customers:', error);
@@ -190,7 +186,7 @@ const Credits = () => {
   };
 
   // Filter logic
-  const filteredCustomers = customersWithCredits.filter(customer => {
+  const filteredCustomers = customers.filter(customer => {
     const matchesSearch = !searchTerm || 
       customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       customer.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -198,9 +194,15 @@ const Credits = () => {
     
     const matchesCustomer = selectedCustomerId === "all" || customer.id.toString() === selectedCustomerId;
     
-    return matchesSearch && matchesCustomer;
+    const matchesFilter = filterType === "all" || 
+      (filterType === "with-credits" && (customer.currentBalance || 0) > 0) ||
+      (filterType === "no-credits" && (customer.currentBalance || 0) === 0);
+    
+    return matchesSearch && matchesCustomer && matchesFilter;
   });
 
+  // Calculate stats for customers with credits only
+  const customersWithCredits = customers.filter((c: any) => (c.currentBalance || 0) > 0);
   const totalCredits = customersWithCredits.reduce((sum, customer) => sum + (customer.currentBalance || 0), 0);
 
   if (loading) {
@@ -305,13 +307,23 @@ const Credits = () => {
                 className="pl-10"
               />
             </div>
+            <Select value={filterType} onValueChange={setFilterType}>
+              <SelectTrigger className="w-full md:w-48">
+                <SelectValue placeholder="Filter by balance" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Customers</SelectItem>
+                <SelectItem value="with-credits">With Credits</SelectItem>
+                <SelectItem value="no-credits">No Credits</SelectItem>
+              </SelectContent>
+            </Select>
             <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
               <SelectTrigger className="w-full md:w-64">
                 <SelectValue placeholder="Select customer" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Customers</SelectItem>
-                {customersWithCredits.map((customer) => (
+                {customers.map((customer) => (
                   <SelectItem key={customer.id} value={customer.id.toString()}>
                     {customer.name}
                   </SelectItem>
@@ -328,7 +340,9 @@ const Credits = () => {
           {filteredCustomers.length === 0 ? (
             <div className="p-8 text-center">
               <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-lg text-muted-foreground">No customers with credits found</p>
+              <p className="text-lg text-muted-foreground">
+                {searchTerm ? `No customers found matching "${searchTerm}"` : 'No customers found'}
+              </p>
             </div>
           ) : (
             <div className="space-y-2">
