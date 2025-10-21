@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,13 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { CreditCard, Search, Plus, Users, AlertCircle, Phone, Mail, MapPin, DollarSign, History, MessageCircle, Download, RefreshCw, Clock, Send, Copy, UserPlus } from "lucide-react";
+import { CreditCard, Search, Plus, Users, AlertCircle, Phone, Mail, MapPin, DollarSign, History, MessageCircle, Download, RefreshCw, UserPlus, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { customersApi } from "@/services/api";
 import { useCustomerBalance } from "@/hooks/useCustomerBalance";
 import { format } from "date-fns";
+import { WhatsAppMessageModal } from "@/components/credits/WhatsAppMessageModal";
 
 const Credits = () => {
   const { toast } = useToast();
@@ -32,6 +31,8 @@ const Credits = () => {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+  const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
+  const [whatsAppCustomer, setWhatsAppCustomer] = useState<any>(null);
 
   const fetchAllCustomers = useCallback(async () => {
     try {
@@ -321,105 +322,117 @@ const Credits = () => {
         </CardContent>
       </Card>
 
-      {/* Main Content Tabs */}
-      <Tabs defaultValue="customers" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="customers">Customers</TabsTrigger>
-          <TabsTrigger value="whatsapp">WhatsApp Automation</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="customers" className="space-y-4">
-          {/* Customers List */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredCustomers.length === 0 ? (
-              <Card className="col-span-full">
-                <CardContent className="p-8 text-center">
-                  <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-lg text-muted-foreground">No customers with credits found</p>
-                </CardContent>
-              </Card>
-            ) : (
-              filteredCustomers.map((customer) => (
-                <Card key={customer.id} className="hover:shadow-lg transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h3 className="font-bold text-lg text-foreground">{customer.name}</h3>
-                        <Badge variant={customer.type === "Permanent" ? "default" : "secondary"} className="mt-1">
-                          {customer.type}
-                        </Badge>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm text-muted-foreground">Outstanding</p>
-                        <p className="text-xl font-bold text-red-600">PKR {(customer.currentBalance || 0).toLocaleString()}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2 mb-4">
-                      {customer.phone && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Phone className="h-4 w-4" />
-                          <span>{customer.phone}</span>
-                        </div>
-                      )}
-                      {customer.email && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Mail className="h-4 w-4" />
-                          <span className="truncate">{customer.email}</span>
-                        </div>
-                      )}
-                      {customer.address && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <MapPin className="h-4 w-4" />
-                          <span className="truncate">{customer.address}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button 
-                        size="sm"
-                        className="bg-green-600 hover:bg-green-700"
-                        onClick={() => {
-                          setSelectedCustomer(customer);
-                          setIsPaymentModalOpen(true);
-                        }}
+      {/* Customers List */}
+      <Card>
+        <CardContent className="p-4">
+          {filteredCustomers.length === 0 ? (
+            <div className="p-8 text-center">
+              <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-lg text-muted-foreground">No customers with credits found</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredCustomers.map((customer) => (
+                <div 
+                  key={customer.id} 
+                  className="flex items-center gap-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                >
+                  {/* Customer Name & Type */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-foreground truncate">{customer.name}</h3>
+                      <Badge 
+                        variant={customer.type === "Permanent" ? "default" : "secondary"}
+                        className="text-xs"
                       >
-                        <DollarSign className="h-4 w-4 mr-1" />
-                        Payment
-                      </Button>
-                      <Button 
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedCustomer(customer);
-                          setIsReceivableModalOpen(true);
-                        }}
-                      >
-                        <Plus className="h-4 w-4 mr-1" />
-                        Add Credit
-                      </Button>
+                        {customer.type || "business"}
+                      </Badge>
+                      <Badge variant="secondary" className="text-xs">
+                        {customer.status || "active"}
+                      </Badge>
                     </div>
-                    <Button 
+                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                      {customer.phone && customer.phone !== "N/A" && (
+                        <span className="flex items-center gap-1">
+                          <Phone className="h-3 w-3" />
+                          {customer.phone}
+                        </span>
+                      )}
+                      {customer.address && customer.address !== "No address" && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {customer.address}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Financial Info */}
+                  <div className="text-right">
+                    <p className="text-xs text-muted-foreground">Outstanding</p>
+                    <p className="text-lg font-bold text-red-600">PKR {(customer.currentBalance || 0).toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground">Total: PKR {(customer.totalPurchases || 0).toLocaleString()}</p>
+                  </div>
+
+                  {/* Last Purchase */}
+                  {customer.lastPurchase && (
+                    <div className="text-center hidden md:block">
+                      <p className="text-xs text-muted-foreground">Last Purchase</p>
+                      <p className="text-sm font-medium">{customer.lastPurchase}</p>
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2">
+                    <Button
                       size="sm"
                       variant="ghost"
-                      className="w-full mt-2"
+                      className="h-9 w-9 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                      onClick={() => {
+                        setWhatsAppCustomer(customer);
+                        setIsWhatsAppModalOpen(true);
+                      }}
+                      title="Send WhatsApp Message"
+                    >
+                      <MessageCircle className="h-5 w-5" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700"
+                      onClick={() => {
+                        setSelectedCustomer(customer);
+                        setIsPaymentModalOpen(true);
+                      }}
+                    >
+                      <DollarSign className="h-4 w-4 mr-1" />
+                      Payment
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedCustomer(customer);
+                        setIsReceivableModalOpen(true);
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Credit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
                       onClick={() => handleViewHistory(customer)}
                     >
                       <History className="h-4 w-4 mr-1" />
-                      View History
+                      History
                     </Button>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="whatsapp">
-          <WhatsAppAutomation customers={customersWithCredits} />
-        </TabsContent>
-      </Tabs>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Modals */}
       {selectedCustomer && (
@@ -443,6 +456,15 @@ const Credits = () => {
             onOpenChange={setIsTransactionHistoryOpen}
           />
         </>
+      )}
+
+      {/* WhatsApp Message Modal */}
+      {whatsAppCustomer && (
+        <WhatsAppMessageModal
+          open={isWhatsAppModalOpen}
+          onOpenChange={setIsWhatsAppModalOpen}
+          customer={whatsAppCustomer}
+        />
       )}
     </div>
   );
@@ -868,300 +890,6 @@ const TransactionHistoryModal = ({
         </div>
       </DialogContent>
     </Dialog>
-  );
-};
-
-// WhatsApp Automation Component
-const WhatsAppAutomation = ({ customers }: { customers: any[] }) => {
-  const { toast } = useToast();
-  const [messageTemplate, setMessageTemplate] = useState("Dear {name}, your outstanding balance is PKR {balance}. Please clear your dues at the earliest. Thank you!");
-  const [selectedCustomers, setSelectedCustomers] = useState<Set<number>>(new Set());
-  const [customMessages, setCustomMessages] = useState<Map<number, string>>(new Map());
-  const [isSending, setIsSending] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
-
-  // Initialize - select all customers by default
-  useEffect(() => {
-    const validCustomers = customers.filter(c => c.phone?.replace(/[^0-9]/g, ''));
-    setSelectedCustomers(new Set(validCustomers.map(c => c.id)));
-  }, [customers]);
-
-  const generateMessage = (customer: any) => {
-    // Check if there's a custom message for this customer
-    if (customMessages.has(customer.id)) {
-      return customMessages.get(customer.id)!;
-    }
-    // Otherwise use template
-    return messageTemplate
-      .replace('{name}', customer.name)
-      .replace('{balance}', (customer.currentBalance || 0).toLocaleString());
-  };
-
-  const getSelectedCustomersData = () => {
-    return customers
-      .filter(c => selectedCustomers.has(c.id) && c.phone?.replace(/[^0-9]/g, ''))
-      .map(customer => ({
-        customer,
-        message: generateMessage(customer),
-        phone: customer.phone?.replace(/[^0-9]/g, '')
-      }));
-  };
-
-  const handleToggleCustomer = (customerId: number) => {
-    const newSelected = new Set(selectedCustomers);
-    if (newSelected.has(customerId)) {
-      newSelected.delete(customerId);
-    } else {
-      newSelected.add(customerId);
-    }
-    setSelectedCustomers(newSelected);
-  };
-
-  const handleSelectAll = () => {
-    const validCustomers = customers.filter(c => c.phone?.replace(/[^0-9]/g, ''));
-    setSelectedCustomers(new Set(validCustomers.map(c => c.id)));
-  };
-
-  const handleDeselectAll = () => {
-    setSelectedCustomers(new Set());
-  };
-
-  const handleEditMessage = (customerId: number, newMessage: string) => {
-    const newCustomMessages = new Map(customMessages);
-    newCustomMessages.set(customerId, newMessage);
-    setCustomMessages(newCustomMessages);
-  };
-
-  const handleResetMessage = (customerId: number) => {
-    const newCustomMessages = new Map(customMessages);
-    newCustomMessages.delete(customerId);
-    setCustomMessages(newCustomMessages);
-  };
-
-  const handleSendToAll = async () => {
-    const messagesToSend = getSelectedCustomersData();
-    
-    if (messagesToSend.length === 0) {
-      toast({
-        title: "No Customers Selected",
-        description: "Please select at least one customer with a valid phone number",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsSending(true);
-
-    // Open WhatsApp for each customer with delay to prevent popup blocking
-    messagesToSend.forEach(({ phone, message }, i) => {
-      setTimeout(() => {
-        const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-        window.open(whatsappUrl, '_blank');
-      }, i * 1500); // 1.5 second delay between each
-    });
-
-    setIsSending(false);
-    toast({
-      title: "Opening WhatsApp",
-      description: `Opening ${messagesToSend.length} WhatsApp chats. Please allow popups if blocked.`,
-    });
-  };
-
-  const handleCopyAllMessages = () => {
-    const messagesToSend = getSelectedCustomersData();
-    
-    if (messagesToSend.length === 0) {
-      toast({
-        title: "No Messages",
-        description: "No customers selected",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const allMessages = messagesToSend
-      .map(({ customer, message, phone }) => 
-        `${customer.name} (+${phone}):\n${message}`
-      )
-      .join('\n\n---\n\n');
-
-    navigator.clipboard.writeText(allMessages);
-    
-    toast({
-      title: "Messages Copied",
-      description: `Copied ${messagesToSend.length} messages to clipboard`,
-    });
-  };
-
-  const selectedData = getSelectedCustomersData();
-  const totalBalance = selectedData.reduce((sum, { customer }) => sum + (customer.currentBalance || 0), 0);
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <MessageCircle className="h-5 w-5" />
-          WhatsApp Bulk Messaging
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Summary Stats */}
-        <div className="grid grid-cols-3 gap-4 p-4 bg-muted rounded-lg border">
-          <div>
-            <p className="text-xs text-muted-foreground">Total Customers</p>
-            <p className="text-xl font-bold">{customers.length}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Selected</p>
-            <p className="text-xl font-bold text-primary">{selectedCustomers.size}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Total Balance</p>
-            <p className="text-xl font-bold text-red-600">PKR {totalBalance.toLocaleString()}</p>
-          </div>
-        </div>
-
-        {/* Message Template */}
-        <div>
-          <Label htmlFor="message-template">Message Template</Label>
-          <Textarea
-            id="message-template"
-            value={messageTemplate}
-            onChange={(e) => setMessageTemplate(e.target.value)}
-            rows={3}
-            placeholder="Use {name} for customer name and {balance} for outstanding balance"
-          />
-          <p className="text-xs text-muted-foreground mt-1">
-            Variables: {'{name}'} = customer name, {'{balance}'} = outstanding amount
-          </p>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex gap-2">
-          <Button 
-            onClick={handleSelectAll}
-            variant="outline"
-            size="sm"
-          >
-            Select All
-          </Button>
-          <Button 
-            onClick={handleDeselectAll}
-            variant="outline"
-            size="sm"
-          >
-            Deselect All
-          </Button>
-        </div>
-
-        {/* Customer List with Selection */}
-        <div className="border rounded-lg max-h-96 overflow-y-auto">
-          <div className="divide-y">
-            {customers.map(customer => {
-              const phone = customer.phone?.replace(/[^0-9]/g, '');
-              const isSelected = selectedCustomers.has(customer.id);
-              const hasPhone = Boolean(phone);
-              const message = generateMessage(customer);
-              const isCustomMessage = customMessages.has(customer.id);
-
-              return (
-                <div 
-                  key={customer.id} 
-                  className={`p-3 transition-colors ${isSelected ? 'bg-primary/5' : ''} ${!hasPhone ? 'opacity-50' : ''}`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex items-center h-full pt-1">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => handleToggleCustomer(customer.id)}
-                        disabled={!hasPhone}
-                        className="h-4 w-4 rounded border-gray-300"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex-1">
-                          <p className="font-semibold text-sm">{customer.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {hasPhone ? `+${phone}` : 'No phone number'}
-                          </p>
-                        </div>
-                        <Badge variant="secondary">
-                          PKR {(customer.currentBalance || 0).toLocaleString()}
-                        </Badge>
-                      </div>
-                      
-                      {isSelected && hasPhone && (
-                        <div className="mt-2 space-y-2">
-                          <div className="relative">
-                            <Textarea
-                              value={message}
-                              onChange={(e) => handleEditMessage(customer.id, e.target.value)}
-                              rows={2}
-                              className="text-xs pr-20"
-                            />
-                            {isCustomMessage && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleResetMessage(customer.id)}
-                                className="absolute top-1 right-1 h-7 text-xs"
-                              >
-                                Reset
-                              </Button>
-                            )}
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="w-full"
-                            onClick={() => {
-                              const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-                              window.open(whatsappUrl, '_blank');
-                            }}
-                          >
-                            <Send className="h-3 w-3 mr-1" />
-                            Send Individual
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Main Actions */}
-        <div className="grid grid-cols-2 gap-2">
-          <Button 
-            onClick={handleSendToAll}
-            disabled={isSending || selectedData.length === 0}
-            className="bg-green-600 hover:bg-green-700"
-          >
-            <Send className="h-4 w-4 mr-2" />
-            {isSending ? 'Opening...' : `Send to ${selectedData.length} Customer${selectedData.length !== 1 ? 's' : ''}`}
-          </Button>
-          <Button 
-            onClick={handleCopyAllMessages}
-            variant="outline"
-            disabled={selectedData.length === 0}
-          >
-            <Copy className="h-4 w-4 mr-2" />
-            Copy All
-          </Button>
-        </div>
-
-        {/* Info Alert */}
-        <div className="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
-          <p className="text-xs text-blue-900 dark:text-blue-100">
-            <strong>Note:</strong> For direct WhatsApp sending without opening tabs, you'll need WhatsApp Business API credentials. Contact us to set this up.
-          </p>
-        </div>
-      </CardContent>
-    </Card>
   );
 };
 
