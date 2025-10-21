@@ -386,15 +386,15 @@ const Credits = () => {
                   <div className="flex gap-2">
                     <Button
                       size="sm"
-                      variant="ghost"
-                      className="h-9 w-9 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                      variant="outline"
+                      className="h-10 w-10 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 border-2 border-green-600 hover:border-green-700"
                       onClick={() => {
                         setWhatsAppCustomer(customer);
                         setIsWhatsAppModalOpen(true);
                       }}
                       title="Send WhatsApp Message"
                     >
-                      <MessageCircle className="h-5 w-5" />
+                      <MessageCircle className="h-6 w-6" />
                     </Button>
                     <Button
                       size="sm"

@@ -44,6 +44,7 @@ const Orders = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterCustomer, setFilterCustomer] = useState("");
   const [filterPaymentMethod, setFilterPaymentMethod] = useState("all");
@@ -62,9 +63,19 @@ const Orders = () => {
   // Items per page for server-side pagination
   const ITEMS_PER_PAGE = 20;
 
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+      setCurrentPage(1); // Reset to first page on search
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   useEffect(() => {
     fetchOrders();
-  }, [filterStatus, filterCustomer, dateFrom, dateTo, currentPage, searchTerm, filterPaymentMethod]);
+  }, [filterStatus, filterCustomer, dateFrom, dateTo, currentPage, debouncedSearchTerm, filterPaymentMethod]);
 
   const fetchOrders = async () => {
     try {
@@ -91,8 +102,8 @@ const Orders = () => {
       }
 
       // Add search term to API params for server-side search
-      if (searchTerm) {
-        params.search = searchTerm;
+      if (debouncedSearchTerm) {
+        params.search = debouncedSearchTerm;
       }
 
       // Add payment method filter to API params
